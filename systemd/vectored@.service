@@ -1,0 +1,36 @@
+[Unit]
+Description=NSYS Vectored - Config sync daemon (%i)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+
+# Default profile overrides:
+#   /etc/vectored/profiles/default.env
+# Example contents:
+#   VECTORED_MAIL_TO=ops@yourdomain.tld
+#   VECTORED_MAIL_SUBJECT_PREFIX=[vectored]
+#   VECTORED_SYSLOG_TAG=vectored
+EnvironmentFile=-/etc/vectored/profiles/default.env
+
+# Optional instance-specific overrides:
+#   /etc/vectored/profiles/%i.env
+#   vectored@webservers -> /etc/vectored/profiles/webservers.env
+EnvironmentFile=-/etc/vectored/profiles/%i.env
+
+# Run with syslog mirroring. Email is opt-in via env (or append --mail-on-fail --mail-to here).
+ExecStart=/usr/lib/vectored/sync.sh --inventory /etc/vectored/inventory.d/%i.inventory --set /etc/vectored/sets.d/%i.set --syslog
+
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+
+# A little safety hardening (still allows ssh/rsync)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
