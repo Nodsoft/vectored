@@ -17,8 +17,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          curl -sSLo /usr/local/bin/shfmt https://github.com/mvdan/sh/releases/latest/download/shfmt_linux_amd64
-          sudo chmod +x /usr/local/bin/shfmt
+          
+          curl -sS https://webi.sh/shfmt | sh 
+          source ~/.config/envman/PATH.env
+          shfmt --version
 
       - name: shfmt (check formatting)
         run: |
