@@ -1,0 +1,34 @@
+name: Build .deb (vectored)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+jobs:
+  deb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Compute version (NBGV)
+        uses: dotnet/nbgv@f088059084cb5d872e9d1a994433ca6440c2bf72 # v0.4.2
+        id: nbgv
+
+      - name: Build deb
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev
+          VERSION='${{ steps.nbgv.outputs.semver2 }}' OUT_DIR=dist ARCH=amd64 ./packaging/build-deb.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: vectored-deb
+          path: dist/*.deb
