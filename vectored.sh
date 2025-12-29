@@ -24,9 +24,9 @@ SYSLOG=0
 MAIL_ON_FAIL=0
 MAIL_TO="${VECTORED_MAIL_TO:-}"
 MAIL_SUBJECT_PREFIX="${VECTORED_MAIL_SUBJECT_PREFIX:-[vectored]}"
-TARGET_FILTER=""   # comma-separated names to include, e.g. "axon,myelin"
+TARGET_FILTER="" # comma-separated names to include, e.g. "axon,myelin"
 VERBOSE=0
-LOCK_NAME=""       # allow caller to override lock identity
+LOCK_NAME="" # allow caller to override lock identity
 
 usage() {
   cat <<EOF
@@ -81,22 +81,58 @@ resolve_conf_path() {
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --inventory) INVENTORY_PATH="$2"; shift 2 ;;
-      --set) SET_PATH="$2"; shift 2 ;;
-      --dry-run) DRYRUN=1; shift ;;
-      --delete) DO_DELETE=1; shift ;;
-      --syslog) SYSLOG=1; shift ;;
-      --mail-on-fail) MAIL_ON_FAIL=1; shift ;;
-      --mail-to) MAIL_TO="$2"; shift 2 ;;
-      --target) TARGET_FILTER="$2"; shift 2 ;;
-      --lock-name) LOCK_NAME="$2"; shift 2 ;;
-      -v|--verbose) VERBOSE=1; shift ;;
-      -h|--help) usage; exit 0 ;;
+      --inventory)
+        INVENTORY_PATH="$2"
+        shift 2
+        ;;
+      --set)
+        SET_PATH="$2"
+        shift 2
+        ;;
+      --dry-run)
+        DRYRUN=1
+        shift
+        ;;
+      --delete)
+        DO_DELETE=1
+        shift
+        ;;
+      --syslog)
+        SYSLOG=1
+        shift
+        ;;
+      --mail-on-fail)
+        MAIL_ON_FAIL=1
+        shift
+        ;;
+      --mail-to)
+        MAIL_TO="$2"
+        shift 2
+        ;;
+      --target)
+        TARGET_FILTER="$2"
+        shift 2
+        ;;
+      --lock-name)
+        LOCK_NAME="$2"
+        shift 2
+        ;;
+      -v | --verbose)
+        VERBOSE=1
+        shift
+        ;;
+      -h | --help)
+        usage
+        exit 0
+        ;;
       *) die "Unknown argument: $1" ;;
     esac
   done
 
-  [[ -n "$INVENTORY_PATH" && -n "$SET_PATH" ]] || { usage; exit 2; }
+  [[ -n "$INVENTORY_PATH" && -n "$SET_PATH" ]] || {
+    usage
+    exit 2
+  }
 
   INVENTORY_PATH="$(resolve_conf_path "inventory" "$INVENTORY_PATH" "$DEFAULT_INVENTORY_DIR")"
   SET_PATH="$(resolve_conf_path "set" "$SET_PATH" "$DEFAULT_SET_DIR")"
@@ -288,7 +324,8 @@ send_failure_email() {
 
   local subject="${MAIL_SUBJECT_PREFIX} FAIL ${SET_NAME} -> ${name} (rc=${rc})"
   local body
-  body="$(cat <<EOF
+  body="$(
+    cat <<EOF
 vectored failure
 
 Set:       ${SET_NAME}
@@ -302,7 +339,7 @@ Set file:  ${SET_PATH}
 ---- log ----
 $(tail -n 200 "$logbuf")
 EOF
-)"
+  )"
 
   mail_send "$MAIL_TO" "$subject" "$body" || true
 }
