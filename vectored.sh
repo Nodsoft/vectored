@@ -11,10 +11,10 @@ source "${LIB_DIR}/common.sh"
 PROG="vectored"
 
 # Defaults (can be overridden by env)
-CONF_ROOT="${NSYS_SYNC_CONF_ROOT:-/etc/vectored}"
+CONF_ROOT="${VECTORED_CONF_ROOT:-/etc/vectored}"
 DEFAULT_INVENTORY_DIR="${CONF_ROOT}/inventory.d"
 DEFAULT_SET_DIR="${CONF_ROOT}/sets.d"
-DEFAULT_LOCK_DIR="${NSYS_SYNC_LOCK_DIR:-/run}"
+DEFAULT_LOCK_DIR="${VECTORED_LOCK_DIR:-/run}"
 
 INVENTORY_PATH=""
 SET_PATH=""
@@ -22,8 +22,8 @@ DRYRUN=0
 DO_DELETE=0
 SYSLOG=0
 MAIL_ON_FAIL=0
-MAIL_TO="${NSYS_SYNC_MAIL_TO:-}"
-MAIL_SUBJECT_PREFIX="${NSYS_SYNC_MAIL_SUBJECT_PREFIX:-[vectored]}"
+MAIL_TO="${VECTORED_MAIL_TO:-}"
+MAIL_SUBJECT_PREFIX="${VECTORED_MAIL_SUBJECT_PREFIX:-[vectored]}"
 TARGET_FILTER=""   # comma-separated names to include, e.g. "axon,myelin"
 VERBOSE=0
 LOCK_NAME=""       # allow caller to override lock identity
