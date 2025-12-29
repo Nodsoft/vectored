@@ -33,7 +33,9 @@ LOCK_NAME="" # allow caller to override lock identity
 
 vectored_version() {
   # If CI injected a real version, use it.
-  if [[ "$VECTORED_BUILD_VERSION" != '@VECTORED_VERSION@' ]]; then
+  _VECTORED_VERSION_PLACEHOLDER="@""VECTORED_VERSION""@" # construct to avoid replacement
+
+  if [[ "$VECTORED_BUILD_VERSION" != "$_VECTORED_VERSION_PLACEHOLDER" ]]; then
     echo "$VECTORED_BUILD_VERSION"
     return 0
   fi
