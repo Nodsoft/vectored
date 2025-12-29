@@ -13,11 +13,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      
+      - uses: dotnet/nbgv@f088059084cb5d872e9d1a994433ca6440c2bf72 # v0.4.2
+        id: nbgv
+
       - name: Install ShellCheck and shfmt
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          
+
           curl -sS https://webi.sh/shfmt | sh 
           source ~/.config/envman/PATH.env
           shfmt --version
