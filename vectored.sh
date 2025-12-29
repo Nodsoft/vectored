@@ -25,7 +25,7 @@ MAIL_ON_FAIL=0
 MAIL_TO="${VECTORED_MAIL_TO:-}"
 MAIL_SUBJECT_PREFIX="${VECTORED_MAIL_SUBJECT_PREFIX:-[vectored]}"
 TARGET_FILTER="" # comma-separated names to include, e.g. "axon,myelin"
-VERBOSE=0
+# VERBOSE=0
 LOCK_NAME="" # allow caller to override lock identity
 
 usage() {
@@ -117,10 +117,11 @@ parse_args() {
         LOCK_NAME="$2"
         shift 2
         ;;
-      -v | --verbose)
-        VERBOSE=1
-        shift
-        ;;
+      # Currently unused
+      # -v | --verbose)
+      #   VERBOSE=1
+      #   shift
+      #   ;;
       -h | --help)
         usage
         exit 0
