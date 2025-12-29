@@ -1,7 +1,7 @@
 name: Package (vectored)
 
 on:
-  workflow_dispatch:
+  workflow_call:
   push:
     branches:
       - main
@@ -17,6 +17,7 @@ jobs:
     uses: ./.github/workflows/lint.yml
 
   package:
+    needs: lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -68,3 +69,7 @@ jobs:
           path: vectored.tar.gz
           if-no-files-found: error
           retention-days: 14
+
+  build-deb:
+    needs: package
+    uses: ./.github/workflows/deb.yml
