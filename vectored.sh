@@ -117,8 +117,8 @@ main() {
   source "$SET_PATH"
 
   [[ -n "${SET_NAME:-}" ]] || die "SET_NAME missing in set file: $SET_PATH"
-  [[ "${#TARGETS[@]:-0}" -gt 0 ]] || die "TARGETS missing/empty in inventory file: $INVENTORY_PATH"
-  [[ "${#SOURCES[@]:-0}" -gt 0 ]] || die "SOURCES missing/empty in set file: $SET_PATH"
+  [[ ${#TARGETS[@]} -gt 0 ]] || die "TARGETS missing/empty in inventory file: $INVENTORY_PATH"
+  [[ ${#SOURCES[@]} -gt 0 ]] || die "SOURCES missing/empty in set file: $SET_PATH"
 
   # Derived lock name
   if [[ -z "$LOCK_NAME" ]]; then
