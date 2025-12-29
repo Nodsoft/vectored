@@ -45,4 +45,4 @@ jobs:
       - name: Get version
         run: |
           chmod +x ./vectored.sh
-          echo "Vectored version: `$(./vectored.sh --version)`" >> $GITHUB_STEP_SUMMARY
+          echo "Vectored version: \`$(./vectored.sh --version)\`" >> $GITHUB_STEP_SUMMARY
