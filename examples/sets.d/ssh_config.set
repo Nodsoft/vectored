@@ -1,0 +1,28 @@
+# vectored set: SSH configuration deployment
+# This file is intended as an example and template. While it may work as-is, you should review and customize it for your own use.
+
+# Refer to it as "ssh-config" or "ssh_config.set" when running vectored:
+#   ./vectored.sh --inventory <your_inventory> --set ssh-config
+SET_NAME="ssh-config"
+
+# Where to stage on remote (safe temporary landing zone)
+REMOTE_STAGING="/var/lib/vectored/stage/ssh-config"
+
+# Where to deploy live on remote
+REMOTE_LIVE="/etc/ssh"
+
+# Sources on the controller machine
+SOURCES=(
+  "/etc/ssh/sshd_config"
+  "/etc/ssh/sshd_config.d/"
+)
+
+# Excludes: avoid pushing host private keys
+RSYNC_EXCLUDES=(
+  "ssh_host_*_key"
+  "ssh_host_*_key.pub"
+)
+
+# Validate and apply on the remote
+REMOTE_VALIDATE="sshd -t"
+REMOTE_APPLY="systemctl reload ssh || systemctl reload sshd || true"

@@ -1,0 +1,31 @@
+# vectored set: Nginx configuration deployment
+# This file is intended as an example and template. While it may work as-is, you should review and customize it for your own use.
+
+# Refer to it as "nginx" or "nginx.set" when running vectored:
+#   ./vectored.sh --inventory <your_inventory> --set nginx
+SET_NAME="nginx"
+
+# Where to stage on remote (safe temporary landing zone)
+REMOTE_STAGING="/var/lib/vectored/stage/nginx"
+
+# Where to deploy live on remote
+REMOTE_LIVE="/etc/nginx"
+
+# Sources on the controller machine
+SOURCES=(
+  "/etc/nginx/nginx.conf"
+  "/etc/nginx/conf.d/"
+  "/etc/nginx/snippets/"
+)
+
+# Excludes: avoid pushing secrets / private keys
+RSYNC_EXCLUDES=(
+  "*.key"
+  "*.pem"
+  "*.p12"
+  "dhparam.pem"
+)
+
+# Validate and apply on the remote
+REMOTE_VALIDATE="nginx -t"
+REMOTE_APPLY="systemctl reload nginx"

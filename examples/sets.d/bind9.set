@@ -1,0 +1,32 @@
+# vectored set: BIND9 DNS server configuration deployment
+# This file is intended as an example and template. While it may work as-is, you should review and customize it for your own use.
+
+# Refer to it as "bind9" or "bind9.set" when running vectored:
+#   ./vectored.sh --inventory <your_inventory> --set bind9
+SET_NAME="bind9"
+
+# Where to stage on remote (safe temporary landing zone)
+REMOTE_STAGING="/var/lib/vectored/stage/bind9"
+
+# Where to deploy live on remote
+REMOTE_LIVE="/etc/bind"
+
+# Sources on the controller machine
+SOURCES=(
+  "/etc/bind/named.conf"
+  "/etc/bind/named.conf.options"
+  "/etc/bind/named.conf.local"
+  "/etc/bind/zones/"
+)
+
+# Excludes: avoid pushing sensitive DNSSEC keys and journal files
+RSYNC_EXCLUDES=(
+  "*.jnl"
+  "*.signed"
+  "K*.key"
+  "K*.private"
+)
+
+# Validate and apply on the remote
+REMOTE_VALIDATE="named-checkconf -z"
+REMOTE_APPLY="systemctl reload bind9"
