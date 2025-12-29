@@ -155,13 +155,12 @@ main() {
   [[ "$DO_DELETE" -eq 1 ]] && rsync_flags+=(--delete)
 
   local -a rsync_ex=()
-  if [[ "${#RSYNC_EXCLUDES[@]:-0}" -gt 0 ]]; then
+  if [[ ${#RSYNC_EXCLUDES[@]} -gt 0 ]]; then
     local ex
     for ex in "${RSYNC_EXCLUDES[@]}"; do
       rsync_ex+=(--exclude "$ex")
     done
   fi
-
   # Run
   local failures=0
   local entry name host port
