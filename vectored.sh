@@ -106,7 +106,7 @@ parse_args() {
         exit 0
         ;;
       -v | --version)
-        echo "$(vectored_version)"
+        vectored_version
         exit 0
         ;;
       --inventory)
