@@ -47,7 +47,7 @@ Package: $PKG
 Version: $VERSION
 Section: admin
 Priority: optional
-Architecture: any
+Architecture: $ARCH
 Maintainer: Sakura Akeno Isayeki <sakura.isayeki+vectored@nodsoft.net>
 Depends: bash (>= 4.0), rsync, openssh-client, systemd, syslog-ng | rsyslog | systemd-journald
 Recommends: mailutils | bsd-mailx | msmtp-mta, util-linux
