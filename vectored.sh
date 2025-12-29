@@ -2,6 +2,9 @@
 # vectored: push config sets to one or more targets using rsync over ssh.
 set -euo pipefail
 
+# Build-time injected version (set by CI packaging). Keep this placeholder in git.
+VECTORED_BUILD_VERSION='@VECTORED_VERSION@'
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
 
@@ -28,8 +31,25 @@ TARGET_FILTER="" # comma-separated names to include, e.g. "axon,myelin"
 # VERBOSE=0
 LOCK_NAME="" # allow caller to override lock identity
 
+vectored_version() {
+  # If CI injected a real version, use it.
+  if [[ "$VECTORED_BUILD_VERSION" != '@VECTORED_VERSION@' ]]; then
+    echo "$VECTORED_BUILD_VERSION"
+    return 0
+  fi
+
+  # Dev fallback: if running from a git checkout, show a useful string.
+  if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git describe --tags --dirty --always 2>/dev/null && return 0
+  fi
+
+  echo "dev"
+}
+
 usage() {
   cat <<EOF
+NSYS Vectored $(vectored_version) - Systemd-based config synchronization across server clusters
+
 Usage:
   $PROG --inventory <file|name> --set <file|name> [options]
 
@@ -81,6 +101,14 @@ resolve_conf_path() {
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      -v | --version)
+        echo "$(vectored_version)"
+        exit 0
+        ;;
       --inventory)
         INVENTORY_PATH="$2"
         shift 2
@@ -118,14 +146,10 @@ parse_args() {
         shift 2
         ;;
       # Currently unused
-      # -v | --verbose)
+      # --verbose)
       #   VERBOSE=1
       #   shift
       #   ;;
-      -h | --help)
-        usage
-        exit 0
-        ;;
       *) die "Unknown argument: $1" ;;
     esac
   done

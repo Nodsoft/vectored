@@ -12,6 +12,9 @@ on:
       - published
 
 jobs:
+  lint: 
+    uses: ./.github/workflows/lint.yml
+
   package:
     runs-on: ubuntu-latest
     steps:
@@ -21,7 +24,15 @@ jobs:
           fetch-depth: 0
 
       - uses: dotnet/nbgv@f088059084cb5d872e9d1a994433ca6440c2bf72 # v0.4.2
-        id: nbgv    
+        id: nbgv
+        
+      - name: Inject version into vectored.sh
+        run: |
+          set -euo pipefail
+          ver='${{ steps.nbgv.outputs.semver2 }}'
+          # Escape for sed safety
+          esc="$(printf '%s' "$ver" | sed -e 's/[\/&]/\\&/g')"
+          sed -i "s/@VECTORED_VERSION@/${esc}/g" ./vectored.sh
 
       - name: Prepare dist directory
         run: |
