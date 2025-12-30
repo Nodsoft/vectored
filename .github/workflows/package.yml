@@ -1,0 +1,75 @@
+name: Package (vectored)
+
+on:
+  workflow_call:
+  push:
+    branches:
+      - main
+      - develop
+    tags:
+      - "v*"
+  release:
+    types: 
+      - published
+
+jobs:
+  lint: 
+    uses: ./.github/workflows/lint.yml
+
+  package:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: dotnet/nbgv@f088059084cb5d872e9d1a994433ca6440c2bf72 # v0.4.2
+        id: nbgv
+        
+      - name: Inject version into vectored.sh
+        run: |
+          set -euo pipefail
+          ver='${{ steps.nbgv.outputs.semver2 }}'
+          # Escape for sed safety
+          esc="$(printf '%s' "$ver" | sed -e 's/[\/&]/\\&/g')"
+          sed -i "s/@VECTORED_VERSION@/${esc}/g" ./vectored.sh
+
+      - name: Prepare dist directory
+        run: |
+          set -euo pipefail
+          mkdir -p dist/vectored
+
+      - name: Collect files
+        run: |
+          set -euo pipefail
+          # Ensure expected paths exist (fail early if repo layout is wrong)
+          test -f vectored.sh
+          test -d lib
+          test -d systemd
+
+          # Copy project payload
+          cp -a vectored.sh lib systemd dist/vectored/
+
+          # Optional docs/license (don't fail if you haven't added them yet)
+          test -f README.md && cp -a README.md dist/vectored/ || true
+          test -f LICENSE && cp -a LICENSE dist/vectored/ || true
+
+      - name: Create tarball
+        run: |
+          set -euo pipefail
+          tar -C dist -czf vectored.tar.gz vectored
+          ls -lah vectored.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: vectored
+          path: vectored.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  build-deb:
+    needs: package
+    uses: ./.github/workflows/deb.yml

@@ -1,0 +1,29 @@
+[Unit]
+Description=NSYS Vectored - Config sync (%i)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+
+# Optional overrides
+EnvironmentFile=-/etc/vectored/profiles/default.env
+EnvironmentFile=-/etc/vectored/profiles/%i.env
+
+# Extra args for vectored.sh (optional), e.g.:
+#   VECTORED_ARGS=--mail-on-fail --mail-to ops@example.org
+Environment=VECTORED_ARGS=
+
+ExecStart=/usr/lib/vectored/vectored-systemd.sh "%i" $VECTORED_ARGS
+
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

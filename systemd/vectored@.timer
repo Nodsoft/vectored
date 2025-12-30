@@ -1,0 +1,10 @@
+[Unit]
+Description=Run NSYS Vectored periodically (%i)
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+RandomizedDelaySec=20s
+
+[Install]
+WantedBy=timers.target

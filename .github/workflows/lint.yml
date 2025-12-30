@@ -1,0 +1,48 @@
+name: Lint (ShellCheck)
+
+on:
+  push:
+  pull_request:
+  workflow_call:
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: dotnet/nbgv@f088059084cb5d872e9d1a994433ca6440c2bf72 # v0.4.2
+        id: nbgv
+        
+      - name: Inject version into vectored.sh
+        run: |
+          set -euo pipefail
+          ver='${{ steps.nbgv.outputs.semver2 }}'
+          # Escape for sed safety
+          esc="$(printf '%s' "$ver" | sed -e 's/[\/&]/\\&/g')"
+          sed -i "s/@VECTORED_VERSION@/${esc}/g" ./vectored.sh
+
+      - name: Install ShellCheck and shfmt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+          curl -sS https://webi.sh/shfmt | sh 
+          source ~/.config/envman/PATH.env
+          shfmt --version
+
+      - name: shfmt (check formatting)
+        run: |
+          shfmt -i 2 -ci -bn -d vectored.sh lib/*.sh
+
+      - name: ShellCheck
+        run: |
+          shellcheck -x vectored.sh lib/*.sh
+
+      - name: Get version
+        run: |
+          chmod +x ./vectored.sh
+          echo "Vectored version: \`$(./vectored.sh --version)\`" >> $GITHUB_STEP_SUMMARY

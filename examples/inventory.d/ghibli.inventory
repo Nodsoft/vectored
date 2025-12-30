@@ -1,0 +1,30 @@
+# Example inventory for vectored: Studio Ghibli themed hosts
+# This file is intended as an example and template.
+# Refer to it as "ghibli" or "ghibli.inventory" when running vectored:
+#   ./vectored.sh --inventory ghibli --set <examples.set>
+
+# TARGETS - Format: "name|user@host|port"
+#   - name: A unique name for the target host, used as an identifier.
+#   - user@host: SSH user and hostname/IP.
+#   - port: SSH port number.
+TARGETS=(
+  "bathhouse|chihiro@bathhouse.example.com|22"
+  "laputa|pazu@laputa.example.com|22"
+  "iron-town|san@iron-town.example.com|22"
+  "totoro-forest|satsuki@totoro-forest.example.com|22"
+)
+
+# Optional per-target base path override (useful for chroot-ish layouts)
+# REMOTE_BASE__bathhouse="/"
+# REMOTE_BASE__laputa="/"
+# REMOTE_BASE__iron-town="/"
+# REMOTE_BASE__totoro_forest="/"
+
+# SSH options used by vectored for all hosts
+SSH_OPTS="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5"
+
+# Tip:
+# - Use a dedicated key:
+#   /root/.ssh/vectored_ed25519
+# - Consider adding: -i /root/.ssh/vectored_ed25519
+# SSH_OPTS="$SSH_OPTS -i /root/.ssh/vectored_ed25519"
