@@ -3,26 +3,63 @@
 set -euo pipefail
 
 _SYSLOG_ENABLED=0
-_SYSLOG_TAG="${NSYS_SYNC_SYSLOG_TAG:-vectored}"
+_SYSLOG_TAG="${VECTORED_SYSLOG_TAG:-vectored}"
+_USE_SYSCAT=0
+command -v systemd-cat >/dev/null 2>&1 && _USE_SYSCAT=1
 
-log() {
-  local msg="$*"
-
-  # If syslog enabled, emit to syslog…
-  if [[ "${_SYSLOG_ENABLED}" -eq 1 ]]; then
-    logger -t "${_SYSLOG_TAG}" -- "$msg" || true
-
-    # …but if we're under systemd/journald, don't also print to stdout (avoids duplication)
-    if [[ -n "${JOURNAL_STREAM:-}" || -n "${INVOCATION_ID:-}" ]]; then
-      return 0
-    fi
-  fi
-
-  printf '%s %s\n' "$(date -Is)" "$msg"
+_is_systemd() {
+  # INVOCATION_ID is set for systemd services; JOURNAL_STREAM is another hint.
+  [[ -n "${INVOCATION_ID:-}" || -n "${JOURNAL_STREAM:-}" ]]
 }
 
+_is_tty() {
+  [[ -t 1 ]] && [[ -z "${NO_COLOR:-}" ]]
+}
+
+_c() { # _c "ANSI" "text"
+  if _is_tty; then
+    printf '\033[%sm%s\033[0m' "$1" "$2"
+  else
+    printf '%s' "$2"
+  fi
+}
+
+jlog() {
+  # Usage: jlog <prio> <message...>
+  # prio: emerg alert crit err warning notice info debug
+  local prio="$1"
+  shift
+  local msg="$*"
+
+  if _is_systemd && [[ "$_USE_SYSCAT" -eq 1 ]]; then
+    # Send structured log with priority to journald
+    printf '%s\n' "$msg" | systemd-cat -t "$_SYSLOG_TAG" -p "$prio"
+  else
+    # Interactive/non-systemd fallback: timestamped stdout + optional color label
+    local label
+    case "$prio" in
+      err | crit | alert | emerg) label="$(_c '0;31' 'ERROR')" ;;
+      warning) label="$(_c '0;33' 'WARN ')" ;;
+      notice) label="$(_c '0;32' 'OK   ')" ;;
+      debug) label="$(_c '0;90' 'DEBUG')" ;;
+      *) label="$(_c '0;36' 'INFO ')" ;;
+    esac
+    printf '%s %s %s\n' "$(date -Is)" "$label" "$msg"
+  fi
+}
+
+# Convenience helpers
+log_info() { jlog info "$*"; }
+log_warn() { jlog warning "$*"; }
+log_error() { jlog err "$*"; }
+log_ok() { jlog notice "$*"; }
+log_debug() { jlog debug "$*"; }
+
+# Backward-compatible default
+log() { log_info "$*"; }
+
 die() {
-  log "ERROR: $*"
+  log_error "$*"
   exit 2
 }
 

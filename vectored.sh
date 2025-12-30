@@ -230,14 +230,14 @@ main() {
   fi
 
   # Print header
-  log "== $PROG starting =="
-  log "Inventory: $INVENTORY_PATH"
-  log "Set:       $SET_PATH"
-  log "SET_NAME:  $SET_NAME"
-  log "Dry-run:   $DRYRUN"
-  log "Delete:    $DO_DELETE"
-  log "Syslog:    $SYSLOG"
-  log "MailFail:  $MAIL_ON_FAIL (to=${MAIL_TO:-<unset>})"
+  log_info "== $PROG starting =="
+  log_info "Inventory: $INVENTORY_PATH"
+  log_info "Set:       $SET_PATH"
+  log_info "SET_NAME:  $SET_NAME"
+  log_info "Dry-run:   $DRYRUN"
+  log_info "Delete:    $DO_DELETE"
+  log_info "Syslog:    $SYSLOG"
+  log_info "MailFail:  $MAIL_ON_FAIL (to=${MAIL_TO:-<unset>})"
 
   local rsync_flags=()
   [[ "$DRYRUN" -eq 1 ]] && rsync_flags+=(--dry-run)
@@ -245,7 +245,7 @@ main() {
   [[ "$DO_DELETE" -eq 1 ]] && rsync_flags+=(--delete)
 
   local -a rsync_ex=()
-  if [[ ${#RSYNC_EXCLUDES[@]} -gt 0 ]]; then
+  if [[ -n "${RSYNC_EXCLUDES+x}" && ${#RSYNC_EXCLUDES[@]} -gt 0 ]]; then
     local ex
     for ex in "${RSYNC_EXCLUDES[@]}"; do
       rsync_ex+=(--exclude "$ex")
@@ -258,12 +258,12 @@ main() {
     IFS='|' read -r name host port <<<"$entry"
 
     if [[ ${#ONLY[@]} -gt 0 && -z "${ONLY[$name]+x}" ]]; then
-      log "Skipping target '$name' due to --target filter"
+      log_info "Skipping target '$name' due to --target filter"
       continue
     fi
 
     if [[ -z "$name" || -z "$host" || -z "$port" ]]; then
-      log "WARN: bad target entry '$entry' (expected NAME|HOST|PORT), skipping"
+      log_warn "bad target entry '$entry' (expected NAME|HOST|PORT), skipping"
       continue
     fi
 
@@ -275,11 +275,11 @@ main() {
   done
 
   if [[ "$failures" -gt 0 ]]; then
-    log "== $PROG finished with FAILURES: $failures =="
+    log_warn "== $PROG finished with FAILURES: $failures =="
     exit 1
   fi
 
-  log "== $PROG finished OK =="
+  log_info "== $PROG finished OK =="
 }
 
 run_target() {
@@ -296,7 +296,7 @@ run_target() {
     case "$1" in
       --exclude)
         [[ $# -ge 2 ]] || {
-          log "ERROR: --exclude needs a value"
+          log_error "ERROR: --exclude needs a value"
           return 2
         }
         rsync_ex+=(--exclude "$2")
@@ -340,9 +340,9 @@ run_target() {
   # Duplicate output into the log file without pipelines (preserves set -e)
   exec > >(tee -a "$logbuf" >&"$fd_out") 2> >(tee -a "$logbuf" >&"$fd_err")
 
-  log "---- Target '$name' ($host:$port) ----"
-  log "Stage: $stage"
-  log "Live:  $live"
+  log_info "---- Target '$name' ($host:$port) ----"
+  log_info "Stage: $stage"
+  log_info "Live:  $live"
 
   # Preflight remote basics
   run_ssh "$host" "$port" "command -v rsync >/dev/null && mkdir -p '$stage'"
@@ -351,31 +351,31 @@ run_target() {
   local src
   for src in "${SOURCES[@]}"; do
     if [[ ! -e "$src" ]]; then
-      log "WARN: source missing: $src"
+      log_warn "source missing: $src"
       continue
     fi
-    log "Rsync -> stage: $src"
-    run_rsync "$port" "$src" "${host}:${stage}/" "${rsync_flags[@]}" "${rsync_ex[@]}"
+    log_info "Rsync -> stage: $src"
+    run_rsync "$port" "$src" "${host}:${stage}/" "${rsync_flags[@]}" "${rsync_ex[@]}" || return 1
   done
 
   # Optional validate
   if [[ -n "${REMOTE_VALIDATE:-}" ]]; then
-    log "Validate: ${REMOTE_VALIDATE}"
-    run_ssh "$host" "$port" "cd '$stage' && ${REMOTE_VALIDATE}"
+    log_info "Validate: ${REMOTE_VALIDATE}"
+    run_ssh "$host" "$port" "cd '$stage' && ${REMOTE_VALIDATE}" || return 1
   fi
 
   # Promote stage -> live
-  log "Promote stage -> live"
+  log_info "Promote stage -> live"
   # shellcheck disable=SC2029
-  run_ssh "$host" "$port" "rsync -aHAX --numeric-ids ${DO_DELETE:+--delete} '$stage/' '$live/'"
+  run_ssh "$host" "$port" "rsync -aHAX --numeric-ids ${DO_DELETE:+--delete} '$stage/' '$live/'" || return 1
 
   # Optional apply hook
   if [[ -n "${REMOTE_APPLY:-}" ]]; then
-    log "Apply: ${REMOTE_APPLY}"
-    run_ssh "$host" "$port" "${REMOTE_APPLY}"
+    log_info "Apply: ${REMOTE_APPLY}"
+    run_ssh "$host" "$port" "${REMOTE_APPLY}" || return 1
   fi
 
-  log "OK: '$name'"
+  log_info "OK: '$name'"
   return 0
 }
 
@@ -383,7 +383,7 @@ send_failure_email() {
   local name="$1" rc="$2" logbuf="$3"
 
   if [[ -z "$MAIL_TO" ]]; then
-    log "Mail requested but MAIL_TO is empty; skipping email."
+    log_warn "Mail requested but MAIL_TO is empty; skipping email."
     return 0
   fi
 
