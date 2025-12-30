@@ -32,8 +32,9 @@ jlog() {
   local msg="$*"
 
   if _is_systemd && [[ "$_USE_SYSCAT" -eq 1 ]]; then
-    # Send structured log with priority to journald
-    printf '%s\n' "$msg" | systemd-cat -t "$_SYSLOG_TAG" -p "$prio"
+    # Best effort: never let logging break the program exit code
+    printf '%s\n' "$msg" | systemd-cat -t "$_SYSLOG_TAG" -p "$prio" >/dev/null 2>&1 || true
+    return 0
   else
     # Interactive/non-systemd fallback: timestamped stdout + optional color label
     local label
