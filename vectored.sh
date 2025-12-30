@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # vectored: push config sets to one or more targets using rsync over ssh.
+
+# shellcheck disable=SC2317  # Don't warn about unreachable commands in this file
+
 set -euo pipefail
 
 PROG="vectored"
@@ -276,10 +279,11 @@ main() {
 
   if [[ "$failures" -gt 0 ]]; then
     log_warn "== $PROG finished with FAILURES: $failures =="
-    exit 1
+    return 1
   fi
 
   log_info "== $PROG finished OK =="
+  return 0
 }
 
 run_target() {
@@ -410,3 +414,5 @@ EOF
 }
 
 main "$@"
+rc=$?
+exit "$rc"
