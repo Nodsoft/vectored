@@ -279,11 +279,11 @@ main() {
 
   if [[ "$failures" -gt 0 ]]; then
     log_warn "== $PROG finished with FAILURES: $failures =="
-    return 1
+    exit 1
   fi
 
   log_info "== $PROG finished OK =="
-  return 0
+  exit 0
 }
 
 run_target() {
@@ -414,5 +414,3 @@ EOF
 }
 
 main "$@"
-rc=$?
-exit "$rc"
