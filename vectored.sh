@@ -285,86 +285,82 @@ main() {
 run_target() {
   local name="$1" host="$2" port="$3"
   shift 3
+
   local -a rsync_flags=()
   local -a rsync_ex=()
 
-  # Split remaining args: everything starting with --exclude goes to excludes
-  local a
-  for a in "$@"; do
-    if [[ "$a" == --exclude ]]; then
-      rsync_ex+=("$a")
-      shift
-      rsync_ex+=("$1")
-    else
-      rsync_flags+=("$a")
-    fi
+  # Parse forwarded args safely:
+  # - allow: --exclude PATTERN (can repeat)
+  # - everything else goes to rsync_flags (or vectored flags if you use them elsewhere)
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --exclude)
+        [[ $# -ge 2 ]] || {
+          log "ERROR: --exclude needs a value"
+          return 2
+        }
+        rsync_ex+=(--exclude "$2")
+        shift 2
+        ;;
+      *)
+        rsync_flags+=("$1")
+        shift
+        ;;
+    esac
   done
 
-  # Per-host override pattern: REMOTE_BASE__name
   local var="REMOTE_BASE__${name}"
   local remote_base="${!var:-/}"
 
   local stage="${remote_base%/}${REMOTE_STAGING:-/var/lib/vectored/stage/${SET_NAME}}"
   local live="${remote_base%/}${REMOTE_LIVE:-/etc}"
 
-  # If set file defines REMOTE_STAGING/REMOTE_LIVE, prefer those
   if [[ -n "${REMOTE_STAGING:-}" ]]; then stage="${remote_base%/}${REMOTE_STAGING}"; fi
   if [[ -n "${REMOTE_LIVE:-}" ]]; then live="${remote_base%/}${REMOTE_LIVE}"; fi
 
-  # Capture a per-target log buffer (for email)
   local logbuf
   logbuf="$(mktemp)"
-  trap 'rm -f "$logbuf"' RETURN
+  trap 'rm -f '"$(printf '%q' "$logbuf")"'' RETURN
 
-  {
-    log "---- Target '$name' ($host:$port) ----"
-    log "Stage: $stage"
-    log "Live:  $live"
+  # Duplicate output to logbuf without pipelines (preserves set -e)
+  exec 3>&1 4>&2
+  exec > >(tee -a "$logbuf" >&3) 2> >(tee -a "$logbuf" >&4)
 
-    # Preflight remote basics
-    run_ssh "$host" "$port" "command -v rsync >/dev/null && mkdir -p '$stage'"
+  # Make sure we restore stdout/stderr even if something fails mid-run
+  # (RETURN trap already removes the file; this restores fds.)
+  trap 'exec 1>&3 2>&4; exec 3>&- 4>&-; rm -f '"$(printf '%q' "$logbuf")"'' RETURN
 
-    # Push sources -> stage
-    local src
-    for src in "${SOURCES[@]}"; do
-      if [[ ! -e "$src" ]]; then
-        log "WARN: source missing: $src"
-        continue
-      fi
-      log "Rsync -> stage: $src"
-      run_rsync "$port" "$src" "${host}:${stage}/" "${rsync_flags[@]}" "${rsync_ex[@]}"
-    done
+  log "---- Target '$name' ($host:$port) ----"
+  log "Stage: $stage"
+  log "Live:  $live"
 
-    # Optional validate
-    if [[ -n "${REMOTE_VALIDATE:-}" ]]; then
-      log "Validate: ${REMOTE_VALIDATE}"
-      run_ssh "$host" "$port" "cd '$stage' && ${REMOTE_VALIDATE}"
+  run_ssh "$host" "$port" "command -v rsync >/dev/null && mkdir -p '$stage'"
+
+  local src
+  for src in "${SOURCES[@]}"; do
+    if [[ ! -e "$src" ]]; then
+      log "WARN: source missing: $src"
+      continue
     fi
+    log "Rsync -> stage: $src"
+    run_rsync "$port" "$src" "${host}:${stage}/" "${rsync_flags[@]}" "${rsync_ex[@]}"
+  done
 
-    # Promote stage -> live
-    log "Promote stage -> live"
-    # Do promotion on remote to preserve ownership/paths locally (and avoid tricky remote-remote rsync over client)
-    # shellcheck disable=SC2029
-    run_ssh "$host" "$port" "rsync -aHAX --numeric-ids ${DO_DELETE:+--delete} '$stage/' '$live/'"
-
-    # Optional apply hook
-    if [[ -n "${REMOTE_APPLY:-}" ]]; then
-      log "Apply: ${REMOTE_APPLY}"
-      run_ssh "$host" "$port" "${REMOTE_APPLY}"
-    fi
-
-    log "OK: '$name'"
-  } 2>&1 | tee -a "$logbuf"
-
-  local rc=${PIPESTATUS[0]}
-  if [[ "$rc" -ne 0 ]]; then
-    log "FAIL: '$name' (rc=$rc)"
-    if [[ "$MAIL_ON_FAIL" -eq 1 ]]; then
-      send_failure_email "$name" "$rc" "$logbuf"
-    fi
-    return 1
+  if [[ -n "${REMOTE_VALIDATE:-}" ]]; then
+    log "Validate: ${REMOTE_VALIDATE}"
+    run_ssh "$host" "$port" "cd '$stage' && ${REMOTE_VALIDATE}"
   fi
 
+  log "Promote stage -> live"
+  # shellcheck disable=SC2029
+  run_ssh "$host" "$port" "rsync -aHAX --numeric-ids ${DO_DELETE:+--delete} '$stage/' '$live/'"
+
+  if [[ -n "${REMOTE_APPLY:-}" ]]; then
+    log "Apply: ${REMOTE_APPLY}"
+    run_ssh "$host" "$port" "${REMOTE_APPLY}"
+  fi
+
+  log "OK: '$name'"
   return 0
 }
 
