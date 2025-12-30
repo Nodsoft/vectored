@@ -324,6 +324,15 @@ run_target() {
 
   # Duplicate output to logbuf without pipelines (preserves set -e)
   exec 3>&1 4>&2
+
+  cleanup_run_target() {
+    # Restore stdout/stderr if possible; ignore fd errors
+    { exec 1>&3 2>&4; } 2>/dev/null || true
+    { exec 3>&- 4>&-; } 2>/dev/null || true
+    rm -f "$logbuf" 2>/dev/null || true
+  }
+  trap cleanup_run_target RETURN
+
   exec > >(tee -a "$logbuf" >&3) 2> >(tee -a "$logbuf" >&4)
 
   # Make sure we restore stdout/stderr even if something fails mid-run

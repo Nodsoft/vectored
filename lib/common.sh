@@ -6,11 +6,19 @@ _SYSLOG_ENABLED=0
 _SYSLOG_TAG="${NSYS_SYNC_SYSLOG_TAG:-vectored}"
 
 log() {
-  # journald likes timestamps on stdout, too.
-  printf '%s %s\n' "$(date -Is)" "$*"
+  local msg="$*"
+
+  # If syslog enabled, emit to syslog…
   if [[ "${_SYSLOG_ENABLED}" -eq 1 ]]; then
-    logger -t "${_SYSLOG_TAG}" -- "$*"
+    logger -t "${_SYSLOG_TAG}" -- "$msg" || true
+
+    # …but if we're under systemd/journald, don't also print to stdout (avoids duplication)
+    if [[ -n "${JOURNAL_STREAM:-}" || -n "${INVOCATION_ID:-}" ]]; then
+      return 0
+    fi
   fi
+
+  printf '%s %s\n' "$(date -Is)" "$msg"
 }
 
 die() {
