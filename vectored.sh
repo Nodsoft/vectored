@@ -2,16 +2,43 @@
 # vectored: push config sets to one or more targets using rsync over ssh.
 set -euo pipefail
 
+PROG="vectored"
+
 # Build-time injected version (set by CI packaging). Keep this placeholder in git.
 VECTORED_BUILD_VERSION='@VECTORED_VERSION@'
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-LIB_DIR="${SCRIPT_DIR}/lib"
+# Resolve real path of this script (handles symlinks)
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd -P -- "$(dirname -- "$_self")" && pwd)"
+  _self="$(readlink -- "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd -P -- "$(dirname -- "$_self")" && pwd)"
 
-# shellcheck source=lib/common.sh
-source "${LIB_DIR}/common.sh"
+# Prefer repo/local layout first, then FHS install layout
+COMMON_CANDIDATES=(
+  "${SCRIPT_DIR}/lib/common.sh"     # repo layout (./lib)
+  "${SCRIPT_DIR}/common.sh"         # if you ever flatten
+  "/usr/lib/vectored/lib/common.sh" # packaged FHS layout
+)
 
-PROG="vectored"
+COMMON_SH=""
+for c in "${COMMON_CANDIDATES[@]}"; do
+  if [[ -f "$c" ]]; then
+    COMMON_SH="$c"
+    break
+  fi
+done
+
+if [[ -z "$COMMON_SH" ]]; then
+  echo "vectored: cannot find lib/common.sh. Tried:" >&2
+  printf '  - %s\n' "${COMMON_CANDIDATES[@]}" >&2
+  exit 1
+fi
+
+# shellcheck disable=SC1090
+source "$COMMON_SH"
 
 # Defaults (can be overridden by env)
 CONF_ROOT="${VECTORED_CONF_ROOT:-/etc/vectored}"

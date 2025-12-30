@@ -24,12 +24,14 @@ mkdir -p "$OUT_DIR"
 # --- filesystem skeleton ---
 mkdir -p "$PKGROOT/DEBIAN"
 mkdir -p "$PKGROOT/usr/lib/vectored"
+mkdir -p "$PKGROOT/usr/lib/vectored/lib"
 mkdir -p "$PKGROOT/usr/sbin"
 mkdir -p "$PKGROOT/lib/systemd/system"
 mkdir -p "$PKGROOT/etc/vectored/inventory.d" "$PKGROOT/etc/vectored/sets.d" "$PKGROOT/etc/vectored/profiles"
 
 # --- payload ---
 install -m 0755 "$ROOT/vectored.sh" "$PKGROOT/usr/lib/vectored/vectored.sh"
+install -m 0755 "$ROOT/lib/common.sh" "$PKGROOT/usr/lib/vectored/lib/common.sh"
 install -m 0755 "$ROOT/lib/vectored-systemd.sh" "$PKGROOT/usr/lib/vectored/vectored-systemd.sh"
 install -m 0755 "$ROOT/bin/vectored" "$PKGROOT/usr/sbin/vectored"
 
