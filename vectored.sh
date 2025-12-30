@@ -291,7 +291,7 @@ run_target() {
 
   # Parse forwarded args safely:
   # - allow: --exclude PATTERN (can repeat)
-  # - everything else goes to rsync_flags (or vectored flags if you use them elsewhere)
+  # - everything else goes to rsync_flags
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --exclude)
@@ -318,33 +318,36 @@ run_target() {
   if [[ -n "${REMOTE_STAGING:-}" ]]; then stage="${remote_base%/}${REMOTE_STAGING}"; fi
   if [[ -n "${REMOTE_LIVE:-}" ]]; then live="${remote_base%/}${REMOTE_LIVE}"; fi
 
+  # Capture a per-target log buffer (for email)
   local logbuf
   logbuf="$(mktemp)"
-  trap 'rm -f '"$(printf '%q' "$logbuf")"'' RETURN
 
-  # Duplicate output to logbuf without pipelines (preserves set -e)
-  exec 3>&1 4>&2
+  # Save original stdout/stderr to anonymous fds (avoids "3: Bad file descriptor")
+  local fd_out fd_err
+  exec {fd_out}>&1
+  exec {fd_err}>&2
 
   cleanup_run_target() {
-    # Restore stdout/stderr if possible; ignore fd errors
-    { exec 1>&3 2>&4; } 2>/dev/null || true
-    { exec 3>&- 4>&-; } 2>/dev/null || true
+    # Restore stdout/stderr; ignore fd errors
+    { exec 1>&"$fd_out" 2>&"$fd_err"; } 2>/dev/null || true
+    # Close the saved fds; ignore fd errors
+    { exec {fd_out}>&-; } 2>/dev/null || true
+    { exec {fd_err}>&-; } 2>/dev/null || true
     rm -f "$logbuf" 2>/dev/null || true
   }
   trap cleanup_run_target RETURN
 
-  exec > >(tee -a "$logbuf" >&3) 2> >(tee -a "$logbuf" >&4)
-
-  # Make sure we restore stdout/stderr even if something fails mid-run
-  # (RETURN trap already removes the file; this restores fds.)
-  trap 'exec 1>&3 2>&4; exec 3>&- 4>&-; rm -f '"$(printf '%q' "$logbuf")"'' RETURN
+  # Duplicate output into the log file without pipelines (preserves set -e)
+  exec > >(tee -a "$logbuf" >&"$fd_out") 2> >(tee -a "$logbuf" >&"$fd_err")
 
   log "---- Target '$name' ($host:$port) ----"
   log "Stage: $stage"
   log "Live:  $live"
 
+  # Preflight remote basics
   run_ssh "$host" "$port" "command -v rsync >/dev/null && mkdir -p '$stage'"
 
+  # Push sources -> stage
   local src
   for src in "${SOURCES[@]}"; do
     if [[ ! -e "$src" ]]; then
@@ -355,15 +358,18 @@ run_target() {
     run_rsync "$port" "$src" "${host}:${stage}/" "${rsync_flags[@]}" "${rsync_ex[@]}"
   done
 
+  # Optional validate
   if [[ -n "${REMOTE_VALIDATE:-}" ]]; then
     log "Validate: ${REMOTE_VALIDATE}"
     run_ssh "$host" "$port" "cd '$stage' && ${REMOTE_VALIDATE}"
   fi
 
+  # Promote stage -> live
   log "Promote stage -> live"
   # shellcheck disable=SC2029
   run_ssh "$host" "$port" "rsync -aHAX --numeric-ids ${DO_DELETE:+--delete} '$stage/' '$live/'"
 
+  # Optional apply hook
   if [[ -n "${REMOTE_APPLY:-}" ]]; then
     log "Apply: ${REMOTE_APPLY}"
     run_ssh "$host" "$port" "${REMOTE_APPLY}"
