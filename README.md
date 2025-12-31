@@ -63,7 +63,16 @@ Under the hood, vectored will:
 
 ### Debian / Ubuntu (recommended)
 
-vectored is distributed as a `.deb` package.
+#### NSYS Packages repository (recommended) 
+You can install vectored on Debian-based systems via the NSYS Packages repository:
+
+```bash
+curl -fsSL https://packages.nodsoft.net/install.sh | sudo bash
+sudo apt install vectored
+```
+
+#### Manual .deb installation
+vectored is also available as a `.deb` package, found in the releases. Install it with:
 ```bash
 sudo dpkg -i vectored_<version>_amd64.deb
 ```
