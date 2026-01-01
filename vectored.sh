@@ -352,7 +352,7 @@ run_target() {
   run_ssh "$host" "$port" "command -v rsync >/dev/null && mkdir -p '$stage'"
 
   # Push sources -> stage
-  local stage_root="$stage"  # rename for clarity
+  local stage_root="$stage" # rename for clarity
   local src rel
 
   for src in "${SOURCES[@]}"; do
@@ -361,20 +361,26 @@ run_target() {
       continue
     fi
 
-    rel="${src#/}"  # absolute -> relative path under stage_root
+    rel="${src#/}" # absolute -> relative path under stage_root
 
     if [[ -d "$src" ]]; then
       # Ensure parent exists, then sync the directory itself
       run_ssh "$host" "$port" "mkdir -p '$stage_root/$(dirname -- "$rel")'" || return 1
       log_info "Rsync -> stage: $src  =>  $stage_root/$rel/"
       run_rsync "$port" "$src" "${host}:${stage_root}/${rel%/}/" "${rsync_flags[@]}" "${rsync_ex[@]}" \
-        || { log_error "rsync failed for '$name'"; return 1; }
+        || {
+          log_error "rsync failed for '$name'"
+          return 1
+        }
     else
       # Ensure parent exists, then sync the file to the exact path
       run_ssh "$host" "$port" "mkdir -p '$stage_root/$(dirname -- "$rel")'" || return 1
       log_info "Rsync -> stage: $src  =>  $stage_root/$rel"
       run_rsync "$port" "$src" "${host}:${stage_root}/${rel}" "${rsync_flags[@]}" "${rsync_ex[@]}" \
-        || { log_error "rsync failed for '$name'"; return 1; }
+        || {
+          log_error "rsync failed for '$name'"
+          return 1
+        }
     fi
   done
 
@@ -390,16 +396,19 @@ run_target() {
 
   while IFS= read -r root; do
     [[ -n "$root" ]] || continue
-    relroot="${root#/}"  # e.g. etc/nginx
+    relroot="${root#/}" # e.g. etc/nginx
 
     # Sanity: staged root must exist
     run_ssh "$host" "$port" "test -e '$stage_root/$relroot'" \
-      || { log_error "stage missing expected root: $stage_root/$relroot"; return 1; }
+      || {
+        log_error "stage missing expected root: $stage_root/$relroot"
+        return 1
+      }
 
     # Guard: refuse overly-broad roots (must be at least two levels deep, like /etc/nginx)
     # Counts path segments after the leading slash.
     case "$root" in
-      "/"|"" )
+      "/" | "")
         log_error "Refusing to promote root path: '$root'"
         return 2
         ;;
@@ -421,7 +430,10 @@ run_target() {
     log_info "Promote: $stage_root/$relroot  =>  /$relroot"
     # shellcheck disable=SC2029
     run_ssh "$host" "$port" "rsync -aHAX --numeric-ids ${DO_DELETE:+--delete} '$stage_root/$relroot/' '/$relroot/'" \
-      || { log_error "promote failed for root: /$relroot"; return 1; }
+      || {
+        log_error "promote failed for root: /$relroot"
+        return 1
+      }
   done < <(compute_promote_roots)
 }
 
