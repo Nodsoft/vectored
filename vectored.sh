@@ -352,14 +352,36 @@ run_target() {
   run_ssh "$host" "$port" "command -v rsync >/dev/null && mkdir -p '$stage'"
 
   # Push sources -> stage
-  local src
+  local stage_root="$stage" # rename for clarity
+  local src rel
+
   for src in "${SOURCES[@]}"; do
     if [[ ! -e "$src" ]]; then
       log_warn "source missing: $src"
       continue
     fi
-    log_info "Rsync -> stage: $src"
-    run_rsync "$port" "$src" "${host}:${stage}/" "${rsync_flags[@]}" "${rsync_ex[@]}" || return 1
+
+    rel="${src#/}" # absolute -> relative path under stage_root
+
+    if [[ -d "$src" ]]; then
+      # Ensure parent exists, then sync the directory itself
+      run_ssh "$host" "$port" "mkdir -p '$stage_root/$(dirname -- "$rel")'" || return 1
+      log_info "Rsync -> stage: $src  =>  $stage_root/$rel/"
+      run_rsync "$port" "$src" "${host}:${stage_root}/${rel%/}/" "${rsync_flags[@]}" "${rsync_ex[@]}" \
+        || {
+          log_error "rsync failed for '$name'"
+          return 1
+        }
+    else
+      # Ensure parent exists, then sync the file to the exact path
+      run_ssh "$host" "$port" "mkdir -p '$stage_root/$(dirname -- "$rel")'" || return 1
+      log_info "Rsync -> stage: $src  =>  $stage_root/$rel"
+      run_rsync "$port" "$src" "${host}:${stage_root}/${rel}" "${rsync_flags[@]}" "${rsync_ex[@]}" \
+        || {
+          log_error "rsync failed for '$name'"
+          return 1
+        }
+    fi
   done
 
   # Optional validate
@@ -370,17 +392,49 @@ run_target() {
 
   # Promote stage -> live
   log_info "Promote stage -> live"
-  # shellcheck disable=SC2029
-  run_ssh "$host" "$port" "rsync -aHAX --numeric-ids ${DO_DELETE:+--delete} '$stage/' '$live/'" || return 1
+  local root relroot
 
-  # Optional apply hook
-  if [[ -n "${REMOTE_APPLY:-}" ]]; then
-    log_info "Apply: ${REMOTE_APPLY}"
-    run_ssh "$host" "$port" "${REMOTE_APPLY}" || return 1
-  fi
+  while IFS= read -r root; do
+    [[ -n "$root" ]] || continue
+    relroot="${root#/}" # e.g. etc/nginx
 
-  log_info "OK: '$name'"
-  return 0
+    # Sanity: staged root must exist
+    run_ssh "$host" "$port" "test -e '$stage_root/$relroot'" \
+      || {
+        log_error "stage missing expected root: $stage_root/$relroot"
+        return 1
+      }
+
+    # Guard: refuse overly-broad roots (must be at least two levels deep, like /etc/nginx)
+    # Counts path segments after the leading slash.
+    case "$root" in
+      "/" | "")
+        log_error "Refusing to promote root path: '$root'"
+        return 2
+        ;;
+    esac
+
+    # Strip trailing slash, then count segments
+    _trimmed="${root%/}"
+    _segments="${_trimmed#/}"
+    depth=0
+    IFS='/' read -r -a _parts <<<"$_segments"
+    depth="${#_parts[@]}"
+
+    if [[ "$depth" -lt 2 ]]; then
+      log_error "Refusing to promote overly broad root (depth=$depth): $root"
+      return 2
+    fi
+
+    # Promote directory roots (or parent dirs for files) onto their absolute location
+    log_info "Promote: $stage_root/$relroot  =>  /$relroot"
+    # shellcheck disable=SC2029
+    run_ssh "$host" "$port" "rsync -aHAX --numeric-ids ${DO_DELETE:+--delete} '$stage_root/$relroot/' '/$relroot/'" \
+      || {
+        log_error "promote failed for root: /$relroot"
+        return 1
+      }
+  done < <(compute_promote_roots)
 }
 
 send_failure_email() {
