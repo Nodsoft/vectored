@@ -137,3 +137,19 @@ mail_send() {
   log "WARN: cannot send mail (no 'mail' or 'sendmail' found)."
   return 1
 }
+
+compute_promote_roots() {
+  # Outputs a newline-separated list of absolute roots derived from SOURCES:
+  # - file -> dirname(file)
+  # - dir  -> dir itself (trim trailing /)
+  local src root
+  for src in "${SOURCES[@]}"; do
+    [[ -e "$src" ]] || continue
+    if [[ -d "$src" ]]; then
+      root="${src%/}"
+    else
+      root="$(dirname -- "$src")"
+    fi
+    printf '%s\n' "$root"
+  done | awk '!seen[$0]++'
+}
