@@ -429,7 +429,12 @@ run_target() {
     # Promote directory roots (or parent dirs for files) onto their absolute location
     log_info "Promote: $stage_root/$relroot  =>  /$relroot"
     # shellcheck disable=SC2029
-    run_ssh "$host" "$port" "rsync -aHAX --numeric-ids ${DO_DELETE:+--delete} '$stage_root/$relroot/' '/$relroot/'" \
+    local -a del_flag=()
+    if [[ "${DO_DELETE:-0}" -eq 1 ]]; then
+      del_flag+=(--delete)
+    fi
+
+    run_ssh "$host" "$port" "rsync -aHAX --numeric-ids ${del_flag[*]} '$stage_root/$relroot/' '/$relroot/'" \
       || {
         log_error "promote failed for root: /$relroot"
         return 1
