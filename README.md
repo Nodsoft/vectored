@@ -85,6 +85,63 @@ Configuration lives in:
 ```
 Of course, preserved across package upgrades.
 
+### systemd hardening
+
+The Debian package installs a vendor drop-in for every `vectored@` service
+instance. The existing service also enables `NoNewPrivileges=yes` and
+`PrivateTmp=yes`. These protections apply to the local controller and its
+children, not to commands run on remote hosts over SSH. The standalone CLI is
+not sandboxed by this drop-in.
+
+| Setting | Effect on the local service |
+| --- | --- |
+| `NoNewPrivileges=yes` | Prevents child processes from gaining privileges through setuid/setgid executables or file capabilities. |
+| `PrivateTmp=yes` | Gives the service private `/tmp` and `/var/tmp` directories. |
+| `ProtectKernelTunables=yes` | Makes kernel tunable interfaces read-only or inaccessible. |
+| `ProtectKernelModules=yes` | Blocks loading or unloading kernel modules and limits access to module interfaces. |
+| `ProtectControlGroups=yes` | Makes the cgroup hierarchy read-only. |
+| `CapabilityBoundingSet=~…` | Removes the listed administrative, kernel, tracing, audit-control and MAC capabilities from the service and its children. |
+| `LockPersonality=yes` | Prevents changing the process execution personality. |
+| `RestrictRealtime=yes` | Denies requests for real-time scheduling. |
+| `RestrictSUIDSGID=yes` | Denies creating files or changing modes with setuid or setgid bits. |
+
+No source, SSH or lock paths need to be reconfigured for this drop-in. The
+existing `PrivateTmp` already hides host files under `/tmp` and `/var/tmp`;
+the kernel, module and cgroup protections also restrict those special paths.
+Other paths remain subject to ordinary permissions. Root retains
+significant privileges, including access to protected files; trusted profiles,
+inventories, sets, local SSH helpers and remote credentials remain security
+critical. This is defense in depth, not confinement of arbitrary shell code.
+
+Custom local helpers that administer the kernel or use the removed capabilities
+may require a local policy adjustment. The filesystem protections use mount
+namespaces and can fail to start in restricted containers; systemd and kernel
+support also determine which protections are effective. Test a representative
+instance after upgrades, including custom SSH helpers and alert delivery:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl start vectored@inventory:set.service
+sudo systemctl status vectored@inventory:set.service
+sudo journalctl -u vectored@inventory:set.service -b
+```
+
+Administrators can add overrides with `systemctl edit vectored@.service` (all
+instances), or `systemctl edit vectored@inventory:set.service` (one instance).
+If the vendor drop-in prevents startup, it can be disabled for all instances
+by masking this drop-in by name, without changing package files:
+
+```bash
+sudo mkdir -p /etc/systemd/system/vectored@.service.d
+sudo ln -s /dev/null /etc/systemd/system/vectored@.service.d/10-hardening.conf
+sudo systemctl daemon-reload
+```
+
+Remove the symlink and reload systemd to restore the packaged policy. A local
+file with the same name takes precedence, so check for an existing override
+before creating the symlink. Disabling the drop-in removes its protections;
+the original service's `NoNewPrivileges` and `PrivateTmp` settings remain.
+
 ### From source
 You can also run vectored directly from source.
 ```bash

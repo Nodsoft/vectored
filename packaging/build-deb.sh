@@ -27,6 +27,7 @@ mkdir -p "$PKGROOT/usr/lib/vectored"
 mkdir -p "$PKGROOT/usr/lib/vectored/lib"
 mkdir -p "$PKGROOT/usr/sbin"
 mkdir -p "$PKGROOT/lib/systemd/system"
+mkdir -p "$PKGROOT/lib/systemd/system/vectored@.service.d"
 mkdir -p "$PKGROOT/etc/vectored/inventory.d" "$PKGROOT/etc/vectored/sets.d" "$PKGROOT/etc/vectored/profiles"
 
 # --- payload ---
@@ -37,6 +38,7 @@ install -m 0755 "$ROOT/bin/vectored" "$PKGROOT/usr/sbin/vectored"
 
 install -m 0644 "$ROOT/systemd/vectored@.service" "$PKGROOT/lib/systemd/system/vectored@.service"
 install -m 0644 "$ROOT/systemd/vectored@.timer"  "$PKGROOT/lib/systemd/system/vectored@.timer"
+install -m 0644 "$ROOT/systemd/vectored@.service.d/10-hardening.conf" "$PKGROOT/lib/systemd/system/vectored@.service.d/10-hardening.conf"
 
 # --- inject version into the installed script (no mutable version file) ---
 # Use the placeholder method you already implemented
