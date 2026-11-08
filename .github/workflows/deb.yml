@@ -23,8 +23,26 @@ jobs:
           chmod +x ./packaging/build-deb.sh
           VERSION='${{ steps.nbgv.outputs.semver2 }}' OUT_DIR=dist ARCH=amd64 ./packaging/build-deb.sh
 
+      - name: Verify packaged systemd hardening
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          deb=(dist/*.deb)
+          dpkg-deb -x "${deb[0]}" "$tmp"
+          unit_dir="$tmp/lib/systemd/system"
+          cmp systemd/vectored@.service.d/10-hardening.conf "$unit_dir/vectored@.service.d/10-hardening.conf"
+          # Verify parsing and drop-in discovery without installing the package.
+          sed -i 's|^ExecStart=.*|ExecStart=/usr/bin/true|' "$unit_dir/vectored@.service"
+          SYSTEMD_LOG_LEVEL=debug systemd-analyze verify "$unit_dir/vectored@.service" >"$tmp/verify.log" 2>&1 || {
+            cat "$tmp/verify.log"
+            exit 1
+          }
+          grep -F 'DropIn Path:' "$tmp/verify.log" | grep -F 'vectored@.service.d/10-hardening.conf'
+
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: vectored-deb
           path: dist/*.deb
+
